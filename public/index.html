@@ -3,8 +3,18 @@
     <head>
         <meta charset="utf-8">
         <title>Last.fm Library Downloader</title>
+        <script src="./main.js"></script>
     </head>
     <body>
-        <h1>Last.fm Library Downloader</h1>
+        <header>
+            <h1>Last.fm Library Downloader</h1>
+        </header>
+        <main>
+            <form id="user-form">
+                <label for="username">Username: </label>
+                <input type="text" name="username" required>
+                <button type="submit">Load library</button>
+            </form>
+        </main>
     </body>
 </html>
