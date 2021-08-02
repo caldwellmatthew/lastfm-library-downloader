@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
         const username = form.username.value;
         const resp = await post('/load', { username });
-        console.log(resp);
+        document.getElementById('results').innerText = JSON.stringify(resp);
     });
 });
 
