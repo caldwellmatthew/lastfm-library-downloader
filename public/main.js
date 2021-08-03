@@ -1,16 +1,30 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('user-form');
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const username = form.username.value;
-        const resp = await post('/load', { username });
+    const dom = {
+        form: document.getElementById('user-form'),
+        refreshButton: document.getElementById('refresh-button'),
+        results: document.getElementById('results'),
+    };
 
-        const results = document.getElementById('results');
-        results.innerHTML = '';
-        results.innerHTML = `
+    dom.form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const username = dom.form.username.value;
+        const resp = await post('/load', { username });
+        dom.results.innerHTML = `
             <h3>${resp.username}'s library</h3>
             <p>${resp.count} scrobbles</p>
             <p>${resp.fromDb ? 'Fetched from' : 'Saved to'} database</p>
+            <p>Last updated: ${new Date(resp.timestamp).toLocaleString()}</p>
+        `;
+        dom.refreshButton.classList.remove('hidden');
+    });
+
+    dom.refreshButton.addEventListener('click', async () => {
+        const username = dom.form.username.value;
+        const resp = await post('/refresh', { username });
+        dom.results.innerHTML = `
+            <h3>${resp.username}'s library</h3>
+            <p>${resp.count} scrobbles</p>
+            <p>Saved to database</p>
             <p>Last updated: ${new Date(resp.timestamp).toLocaleString()}</p>
         `;
     });

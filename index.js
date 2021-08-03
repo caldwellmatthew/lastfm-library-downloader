@@ -58,7 +58,8 @@ app.post('/refresh', async (req, res) => {
     }
 
     const from = Math.round(library.timestamp.getTime() / 1000);
-    libraries.updateOne({ _id: library._id }, { $set: { timestamp: new Date } });
+    const timestamp = new Date;
+    libraries.updateOne({ _id: library._id }, { $set: { timestamp } });
     await lastfm.loadLibraryPages(username, async (page, totalPages, tracks) => {
         if (page % 5 === 0) {
             console.log(`Page ${page} / ${totalPages}`);
@@ -73,7 +74,7 @@ app.post('/refresh', async (req, res) => {
     res.send({
         username,
         count: await scrobbles.find({ library_id: library._id }).count(),
-        timestamp: library.timestamp
+        timestamp
     });
 });
 
