@@ -17,7 +17,9 @@ app.post('/load', async (req, res) => {
     const db = await connect();
     const libraries = db.collection('libraries');
     let library = await libraries.findOne({ username });
+    let fromDb = true;
     if (!library) {
+        fromDb = false;
         const recentTracks = await lastfm.getRecentTracks(username);
         library = {
             username,
@@ -26,8 +28,13 @@ app.post('/load', async (req, res) => {
         };
         libraries.insertOne(library);
     }
-    
-    res.send(library);
+
+    res.send({
+        username,
+        fromDb,
+        count: library.scrobbles.length,
+        timestamp: library.timestamp
+    });
 });
 
 app.listen(port, () => {

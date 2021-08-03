@@ -4,7 +4,15 @@ document.addEventListener('DOMContentLoaded', () => {
         event.preventDefault();
         const username = form.username.value;
         const resp = await post('/load', { username });
-        document.getElementById('results').innerText = JSON.stringify(resp);
+
+        const results = document.getElementById('results');
+        results.innerHTML = '';
+        results.innerHTML = `
+            <h3>${resp.username}'s library</h3>
+            <p>${resp.count} scrobbles</p>
+            <p>${resp.fromDb ? 'Fetched from' : 'Saved to'} database</p>
+            <p>Last updated: ${new Date(resp.timestamp).toLocaleString()}</p>
+        `;
     });
 });
 
