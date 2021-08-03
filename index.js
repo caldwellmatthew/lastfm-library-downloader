@@ -21,28 +21,18 @@ app.post('/load', async (req, res) => {
     let fromDb = true;
     if (!library) {
         fromDb = false;
-        // load first page
-        const recentTracks = await lastfm.getRecentTracks(username);
-        const totalPages = recentTracks['@attr'].totalPages;
-        let tracks = recentTracks.track;
-        // store library info
         library = { username, timestamp: new Date };
         const result = await libraries.insertOne(library);
-        // load remaining pages
-        for (let page = 2; page <= totalPages; page++) {
-            await new Promise(res => setTimeout(res, 2000));
-            const resp = await lastfm.getRecentTracks(username, page);
-            tracks.push(...resp.track);
+        await lastfm.loadLibraryPages(username, async (page, totalPages, tracks) => {
             if (page % 5 === 0) {
                 console.log(`Page ${page} / ${totalPages}`);
             }
             if (page % 10 === 0 || page === totalPages) {
-                // update db with last 10 pages scrobbles
                 tracks.forEach(track => track.library_id = result.insertedId);
                 await scrobbles.insertMany(tracks);
                 tracks = [];
             }
-        }
+        });
     }
 
     res.send({
