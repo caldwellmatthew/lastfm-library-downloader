@@ -3,8 +3,11 @@ const fetch = require('node-fetch');
 
 async function loadLibraryPages(user, callback, from) {
     const recentTracks = await getRecentTracks(user, 1, from);
-    const totalPages = recentTracks['@attr'].totalPages;
+    const totalPages = parseInt(recentTracks['@attr'].totalPages);
     let tracks = recentTracks.track;
+    if (totalPages === 1) {
+        await callback(1, totalPages, tracks);
+    }
     for (let page = 2; page <= totalPages; page++) {
         await new Promise(res => setTimeout(res, 2000));
         const resp = await getRecentTracks(user, page, from);
