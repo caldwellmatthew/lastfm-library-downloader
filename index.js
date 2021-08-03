@@ -1,6 +1,6 @@
 const express = require('express');
 const lastfm = require('./lastfm');
-const { connect }= require('./db');
+const { connect } = require('./db');
 
 const app = express();
 const port = 3000;
@@ -13,15 +13,20 @@ app.post('/load', async (req, res) => {
     if (!username) {
         return res.status(400).send({ error: 'Username not provided' });
     }
-    const library = await lastfm.getRecentTracks(username);
 
     const db = await connect();
-    db.collection('libraries').insertOne({
-        username,
-        timestamp: new Date,
-        scrobbles: library.track || []
-    });
-
+    const libraries = db.collection('libraries');
+    let library = await libraries.findOne({ username });
+    if (!library) {
+        const recentTracks = await lastfm.getRecentTracks(username);
+        library = {
+            username,
+            timestamp: new Date,
+            scrobbles: recentTracks.track || []
+        };
+        libraries.insertOne(library);
+    }
+    
     res.send(library);
 });
 
