@@ -16,6 +16,7 @@ app.post('/load', async (req, res) => {
 
     const db = await connect();
     const libraries = db.collection('libraries');
+    const scrobbles = db.collection('scrobbles');
     let library = await libraries.findOne({ username });
     let fromDb = true;
     if (!library) {
@@ -23,41 +24,31 @@ app.post('/load', async (req, res) => {
         // load first page
         const recentTracks = await lastfm.getRecentTracks(username);
         const totalPages = recentTracks['@attr'].totalPages;
-        // store first page
-        libraries.insertOne({ 
-            username, 
-            scrobbles: recentTracks.track, 
-            timestamp: new Date 
-        });
+        let tracks = recentTracks.track;
+        // store library info
+        library = { username, timestamp: new Date };
+        const result = await libraries.insertOne(library);
         // load remaining pages
-        let scrobbles = [];
         for (let page = 2; page <= totalPages; page++) {
             await new Promise(res => setTimeout(res, 2000));
             const resp = await lastfm.getRecentTracks(username, page);
-            scrobbles.push(...resp.track);
+            tracks.push(...resp.track);
             if (page % 5 === 0) {
                 console.log(`Page ${page} / ${totalPages}`);
             }
-            if (page % 10 === 0) {
+            if (page % 10 === 0 || page === totalPages) {
                 // update db with last 10 pages scrobbles
-                libraries.updateOne({ username }, {
-                    $push: { 
-                        scrobbles: {
-                            $each: scrobbles
-                        }
-                    }
-                });
-                scrobbles = [];
+                tracks.forEach(track => track.library_id = result.insertedId);
+                await scrobbles.insertMany(tracks);
+                tracks = [];
             }
         }
-        library = { username, scrobbles, timestamp: new Date };
-        libraries.insertOne(library);
     }
 
     res.send({
         username,
         fromDb,
-        count: library.scrobbles.length,
+        count: await scrobbles.find({ library_id: library._id }).count(),
         timestamp: library.timestamp
     });
 });
