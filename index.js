@@ -1,9 +1,11 @@
 const express = require('express');
+const ws = require('ws');
 const lastfm = require('./lastfm');
 const { connect } = require('./db');
 
 const app = express();
 const port = 3000;
+const wsServer = new ws.Server({ noServer: true });
 
 app.use(express.static('public'));
 app.use(express.json());
@@ -24,9 +26,11 @@ app.post('/load', async (req, res) => {
         library = { username, timestamp: new Date };
         const result = await libraries.insertOne(library);
         await lastfm.loadLibraryPages(username, async (page, totalPages, tracks) => {
-            if (page % 5 === 0) {
-                console.log(`Page ${page} / ${totalPages}`);
-            }
+            wsServer.clients.forEach((client) => {
+                if (client.readyState === ws.OPEN) {
+                    client.send(JSON.stringify({ page, totalPages }));
+                }
+            });
             if (page % 10 === 0 || page === totalPages) {
                 tracks.forEach(track => track.library_id = result.insertedId);
                 await scrobbles.insertMany(tracks);
@@ -61,9 +65,11 @@ app.post('/refresh', async (req, res) => {
     const timestamp = new Date;
     libraries.updateOne({ _id: library._id }, { $set: { timestamp } });
     await lastfm.loadLibraryPages(username, async (page, totalPages, tracks) => {
-        if (page % 5 === 0) {
-            console.log(`Page ${page} / ${totalPages}`);
-        }
+        wsServer.clients.forEach((client) => {
+            if (client.readyState === ws.OPEN) {
+                client.send(JSON.stringify({ page, totalPages }));
+            }
+        });
         if (page % 10 === 0 || page === totalPages) {
             tracks.forEach(track => track.library_id = library._id);
             await scrobbles.insertMany(tracks);
@@ -78,6 +84,11 @@ app.post('/refresh', async (req, res) => {
     });
 });
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
     console.log(`Last.fm Library Downloader listening at http://localhost:${port}`);
+});
+server.on('upgrade', (request, socket, head) => {
+    wsServer.handleUpgrade(request, socket, head, (socket) => {
+        wsServer.emit('connection', socket, request);
+    });
 });
