@@ -1,18 +1,17 @@
 const { MongoClient } = require('mongodb');
 const config = require('./config.json');
 
+const client = new MongoClient(config.mongodbUri);
+
 async function connect() {
-    return new Promise((resolve) => {
-        const client = new MongoClient(config.mongodbUri, {
-            useNewUrlParser: true, 
-            useUnifiedTopology: true
-        });
-        client.connect((err) => {
-            if (err) console.log(err);
-            const db = client.db('lastfm-library-downloader');
-            resolve(db);
-        });
-    })
+    let db;
+    try {
+        await client.connect();
+        db = client.db('lastfm-library-downloader');
+    } catch (err) {
+        console.log(err);
+    }
+    return db;
 }
 
 module.exports = { connect };
