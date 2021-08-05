@@ -10,6 +10,21 @@ const wsServer = new ws.Server({ noServer: true });
 app.use(express.static('public'));
 app.use(express.json());
 
+function onLibraryPageLoad(scrobbles, libraryId) {
+    return async (page, totalPages, tracks) => {
+        wsServer.clients.forEach((client) => {
+            if (client.readyState === ws.OPEN) {
+                client.send(JSON.stringify({ page, totalPages }));
+            }
+        });
+        if (page % 10 === 0 || page === totalPages) {
+            tracks.forEach(track => track.library_id = libraryId);
+            await scrobbles.insertMany(tracks);
+            tracks = [];
+        }
+    };
+}
+
 app.post('/load', async (req, res) => {
     const { username } = req.body;
     if (!username) {
@@ -25,18 +40,7 @@ app.post('/load', async (req, res) => {
         fromDb = false;
         library = { username, timestamp: new Date };
         const result = await libraries.insertOne(library);
-        await lastfm.loadLibraryPages(username, async (page, totalPages, tracks) => {
-            wsServer.clients.forEach((client) => {
-                if (client.readyState === ws.OPEN) {
-                    client.send(JSON.stringify({ page, totalPages }));
-                }
-            });
-            if (page % 10 === 0 || page === totalPages) {
-                tracks.forEach(track => track.library_id = result.insertedId);
-                await scrobbles.insertMany(tracks);
-                tracks = [];
-            }
-        });
+        await lastfm.loadLibraryPages(username, onLibraryPageLoad(scrobbles, result.insertedId));
     }
 
     res.send({
@@ -64,21 +68,11 @@ app.post('/refresh', async (req, res) => {
     const from = Math.round(library.timestamp.getTime() / 1000);
     const timestamp = new Date;
     libraries.updateOne({ _id: library._id }, { $set: { timestamp } });
-    await lastfm.loadLibraryPages(username, async (page, totalPages, tracks) => {
-        wsServer.clients.forEach((client) => {
-            if (client.readyState === ws.OPEN) {
-                client.send(JSON.stringify({ page, totalPages }));
-            }
-        });
-        if (page % 10 === 0 || page === totalPages) {
-            tracks.forEach(track => track.library_id = library._id);
-            await scrobbles.insertMany(tracks);
-            tracks = [];
-        }
-    }, from);
+    await lastfm.loadLibraryPages(username, onLibraryPageLoad(scrobbles, library._id), from);
 
     res.send({
         username,
+        fromDb: false,
         count: await scrobbles.find({ library_id: library._id }).count(),
         timestamp
     });

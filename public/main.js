@@ -5,24 +5,22 @@ document.addEventListener('DOMContentLoaded', () => {
         results: document.getElementById('results'),
     };
 
-    dom.form.addEventListener('submit', async (event) => {
-        event.preventDefault();
+    function setLoading() {
         dom.refreshButton.classList.add('hidden');
         dom.results.innerHTML = `
                 <p>Loading...</p>
                 <p id="progress"></p>
             `;
         dom.progress = document.getElementById('progress');
-        
-        const ws = new WebSocket(`ws://${location.host}`);
-        ws.addEventListener('message', (event) => {
-            const { page, totalPages } = JSON.parse(event.data);
-            const progress = (page / totalPages * 100).toFixed(2);
-            dom.progress.innerText = `Page ${page} / ${totalPages} (${progress}%)`;
-        });
+    }
 
-        const username = dom.form.username.value;
-        const resp = await post('/load', { username });
+    function updateProgress(data) {
+        const { page, totalPages } = data;
+        const progress = (page / totalPages * 100).toFixed(2);
+        dom.progress.innerText = `Page ${page} / ${totalPages} (${progress}%)`;
+    }
+
+    function displayResults(resp) {
         dom.results.innerHTML = `
             <h3>${resp.username}'s library</h3>
             <p>${resp.count} scrobbles</p>
@@ -30,33 +28,26 @@ document.addEventListener('DOMContentLoaded', () => {
             <p>Last updated: ${new Date(resp.timestamp).toLocaleString()}</p>
         `;
         dom.refreshButton.classList.remove('hidden');
+    }
+
+    dom.form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        setLoading();
+        const ws = wsConnect((message) => updateProgress(message));
+
+        const username = dom.form.username.value;
+        const resp = await post('/load', { username });
+        displayResults(resp);
         ws.close();
     });
 
     dom.refreshButton.addEventListener('click', async () => {
-        dom.refreshButton.classList.add('hidden');
-        dom.results.innerHTML = `
-            <p>Loading...</p>
-            <p id="progress"></p>
-        `;
-        dom.progress = document.getElementById('progress');
-
-        const ws = new WebSocket(`ws://${location.host}`);
-        ws.addEventListener('message', (event) => {
-            const { page, totalPages } = JSON.parse(event.data);
-            const progress = (page / totalPages * 100).toFixed(2);
-            dom.progress.innerText = `Page ${page} / ${totalPages} (${progress}%)`;
-        });
+        setLoading();
+        const ws = wsConnect((message) => updateProgress(message));
 
         const username = dom.form.username.value;
         const resp = await post('/refresh', { username });
-        dom.results.innerHTML = `
-            <h3>${resp.username}'s library</h3>
-            <p>${resp.count} scrobbles</p>
-            <p>Saved to database</p>
-            <p>Last updated: ${new Date(resp.timestamp).toLocaleString()}</p>
-        `;
-        dom.refreshButton.classList.remove('hidden');
+        displayResults(resp);
         ws.close();
     });
 });
@@ -72,4 +63,12 @@ async function post(url, body) {
     });
     const data = await resp.json();
     return data;
+}
+
+function wsConnect(onMessage) {
+    const ws = new WebSocket(`ws://${location.host}`);
+    ws.addEventListener('message', (event) => {
+        onMessage(JSON.parse(event.data));
+    });
+    return ws;
 }
