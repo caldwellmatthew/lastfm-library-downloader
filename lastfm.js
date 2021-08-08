@@ -8,6 +8,10 @@ async function loadLibraryPages(user, callback, from) {
     if (tracks.length === 0) {
         return;
     }
+    if(!Array.isArray(tracks)) {
+        // last.fm API returns single tracks not enclosed in an array
+        tracks = [tracks]; 
+    }
     if (tracks[0]['@attr']?.nowplaying === 'true') {
         tracks.shift();
     }
