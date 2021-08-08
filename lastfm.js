@@ -5,6 +5,9 @@ async function loadLibraryPages(user, callback, from) {
     const recentTracks = await getRecentTracks(user, 1, from);
     const totalPages = parseInt(recentTracks['@attr'].totalPages);
     let tracks = recentTracks.track;
+    if (tracks[0]['@attr']?.nowplaying === 'true') {
+        tracks.shift();
+    }
     if (totalPages === 1) {
         await callback(1, totalPages, tracks);
     }
