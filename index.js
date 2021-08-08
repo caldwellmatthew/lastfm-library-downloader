@@ -65,7 +65,9 @@ app.post('/refresh', async (req, res) => {
         return res.status(400).send({ error: `No library found for user ${username}` });
     }
 
-    const from = Math.round(library.timestamp.getTime() / 1000);
+    const [mostRecentScrobble] = await scrobbles.find({ library_id: library._id })
+        .sort({ 'date.uts': -1 }).limit(1).toArray();
+    const from = parseInt(mostRecentScrobble.date.uts) + 1;
     const timestamp = new Date;
     libraries.updateOne({ _id: library._id }, { $set: { timestamp } });
     await lastfm.loadLibraryPages(username, onLibraryPageLoad(scrobbles, library._id), from);
